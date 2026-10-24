@@ -1,0 +1,10 @@
+{{ define "main" }}
+<article class="conteudo">
+  {{ .Content }}
+  <ol class="trilha">
+    {{ range site.RegularPages.ByWeight }}
+    <li><a href="{{ .RelPermalink }}"><strong>{{ .Title }}</strong><span>{{ .Description }}</span></a></li>
+    {{ end }}
+  </ol>
+</article>
+{{ end }}

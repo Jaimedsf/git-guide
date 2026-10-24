@@ -1,0 +1,15 @@
+baseURL = "https://jaimedsf.github.io/git-guide/"
+languageCode = "pt-BR"
+defaultContentLanguage = "pt"
+title = "Git na Prática"
+disableKinds = ["taxonomy", "term", "RSS"]
+
+[params]
+description = "Aprenda Git do zero, passo a passo: commits, branches, merge, repositórios remotos, conflitos, rebase e pull requests."
+
+[markup.goldmark.renderer]
+unsafe = true
+
+[markup.highlight]
+# ponytail: tema escuro nos dois modos, código parece terminal
+style = "github-dark"

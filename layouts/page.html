@@ -1,0 +1,12 @@
+{{ define "main" }}
+<article class="conteudo">
+  <h1>{{ .Title }}</h1>
+  {{ with .Params.objetivo }}<p class="objetivo"><strong>Ao final você vai saber:</strong> {{ . }}</p>{{ end }}
+  {{ .Content }}
+  {{ $pages := site.RegularPages.ByWeight }}
+  <nav class="paginacao">
+    {{ with $pages.Prev . }}<a class="ant" href="{{ .RelPermalink }}">← {{ .Title }}</a>{{ end }}
+    {{ with $pages.Next . }}<a class="prox" href="{{ .RelPermalink }}">{{ .Title }} →</a>{{ end }}
+  </nav>
+</article>
+{{ end }}
