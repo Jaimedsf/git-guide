@@ -351,12 +351,221 @@ Changes not staged for commit:
 
 O arquivo está no commit e no index, mas **nunca foi escrito no diretório de trabalho**: você só mexeu no banco de dados. Traga-o com `git restore bolo.md`.
 
-O que você acabou de fazer manualmente é o que acontece por trás de:
+O que você acabou de fazer manualmente é o que acontece por trás de `git add` e `git commit`. A próxima seção desmonta esses e outros comandos, passo a passo.
+
+## Decompondo a porcelana, comando por comando
+
+Cada comando do dia a dia é uma sequência de operações de encanamento. Abaixo, cada um é refeito "na mão" com o que cada passo faz. Todos os comandos foram testados em sequência: se quiser acompanhar, crie uma pasta nova (`git init decomposto && cd decomposto`) e rode na ordem.
+
+> **Não use isso no dia a dia.** A porcelana faz verificações de segurança que os comandos abaixo pulam. O objetivo aqui é entender o que acontece, não substituir os comandos normais.
+
+### git add arquivo
+
+```bash
+echo "## Bolo" > bolo.md
+
+git hash-object -w bolo.md
+# 10d10c38413dc9a8423f2ff779cf6f1e1dd9b413
+
+git update-index --add --cacheinfo 100644,10d10c38413dc9a8423f2ff779cf6f1e1dd9b413,bolo.md
+```
+
+| Passo | O que faz |
+|---|---|
+| `git hash-object bolo.md` | lê o arquivo, monta `blob <tamanho>\0<conteúdo>` e calcula o SHA-1. Sem `-w`, só **mostra** o hash. |
+| `-w` | (*write*) além de calcular, **grava** o blob comprimido em `.git/objects/10/d10c38...` |
+| `git update-index --add` | registra no **index** (`.git/index`) a linha "o arquivo `bolo.md`, modo `100644`, tem o conteúdo `10d10c3`". `--add` permite incluir um caminho que ainda não estava no index. |
+| `--cacheinfo modo,hash,caminho` | informa os dados diretamente, sem o Git ler o arquivo do disco |
+
+Atalho: `git update-index --add bolo.md` (sem `--cacheinfo`) faz os dois passos de uma vez, ou seja, calcula, grava o blob e atualiza o index. É praticamente isso que o `git add` faz, mais o tratamento de `.gitignore`, pastas e arquivos apagados.
+
+Confira com `git ls-files --stage`: aparece `100644 10d10c3... 0 bolo.md`.
+
+### git commit -m "mensagem"
+
+```bash
+git write-tree
+# 769c67206a3f8da6414b99c52d4c8c042eae40b0
+
+git commit-tree 769c672 -m "adiciona bolo"
+# 2e47974...   (o seu será diferente)
+
+git update-ref -m "commit (initial): adiciona bolo" HEAD 2e47974
+```
+
+| Passo | O que faz |
+|---|---|
+| `git write-tree` | lê o index e grava **uma tree para cada pasta** (subpastas primeiro, depois a raiz). Imprime o hash da tree raiz. Se a tree for idêntica a uma existente, o hash é o mesmo e nada novo é gravado. |
+| `git commit-tree <tree>` | grava um **objeto commit** com a tree, autor, committer (de `user.name`/`user.email` e da data atual) e a mensagem. Imprime o hash. |
+| `-m "msg"` | a mensagem do commit (sem `-m`, ele lê da entrada padrão) |
+| `-p <hash>` | o **pai**. No primeiro commit não existe; nos seguintes, é o commit atual. Em um merge, passa-se `-p` duas vezes. |
+| `git update-ref HEAD <commit>` | escreve o hash no arquivo da ref. Como `HEAD` contém `ref: refs/heads/main`, quem é atualizado é `.git/refs/heads/main`. Esse é o momento em que o branch "anda". |
+| `-m "..."` no `update-ref` | a mensagem que vai para o **reflog**, a mesma que aparece em `git reflog` |
+
+O segundo commit em diante precisa do pai:
+
+```bash
+echo "## Pudim" > pudim.md
+git update-index --add pudim.md
+T=$(git write-tree)
+P=$(git rev-parse HEAD)               # hash do commit atual
+C=$(git commit-tree $T -p $P -m "adiciona pudim")
+git update-ref -m "commit: adiciona pudim" HEAD $C $P
+```
+
+O último argumento do `update-ref` (`$P`) é opcional: o Git só move a ref se ela **ainda** apontar para `$P`. Se outro processo tiver feito um commit no meio do caminho, a operação falha em vez de perder o trabalho dele. O `git commit` usa essa mesma proteção.
+
+### git status
+
+O `git status` compara as três áreas, duas a duas:
+
+```bash
+echo "edit" >> bolo.md
+echo x > novo.md
+
+git diff-index --cached HEAD                   # último commit × index
+git diff-files --name-status                   # index × diretório de trabalho
+git ls-files --others --exclude-standard       # arquivos que nem estão no index
+```
+
+```text
+M	bolo.md
+novo.md
+```
+
+| Passo | Corresponde a, no `git status` |
+|---|---|
+| `git diff-index --cached HEAD` | *Changes to be committed* (vazio aqui: nada novo no index) |
+| `git diff-files` | *Changes not staged for commit* (`M bolo.md`) |
+| `git ls-files --others --exclude-standard` | *Untracked files* (`novo.md`). `--exclude-standard` respeita o `.gitignore`. |
+
+Desfaça as mudanças antes de seguir: `git checkout-index -f bolo.md` copia a versão do index de volta para o disco (é o que o `git restore` faz) e `rm novo.md`.
+
+### git restore arquivo
+
+| Comando | Encanamento |
+|---|---|
+| `git restore bolo.md` | `git checkout-index -f bolo.md`: copia o blob registrado no **index** para o diretório de trabalho (`-f` sobrescreve) |
+| `git restore --staged bolo.md` | `git update-index --cacheinfo` com o modo e o hash que o arquivo tem em `HEAD` (consultados com `git ls-tree HEAD bolo.md`): o index volta a apontar para o blob do último commit |
+
+### git branch doces
+
+```bash
+git update-ref refs/heads/doces HEAD
+```
+
+É só isso: cria o arquivo `.git/refs/heads/doces` com o hash para o qual HEAD aponta. Nenhum objeto novo, nenhum arquivo copiado. Liste as refs com:
+
+```bash
+git for-each-ref refs/heads
+```
+
+Apagar (`git branch -d`) é o inverso: `git update-ref -d refs/heads/doces`. O `-d` da porcelana ainda verifica antes se o branch foi integrado; o encanamento não verifica nada.
+
+### git switch doces
+
+```bash
+git read-tree -m -u HEAD doces
+git symbolic-ref -m "checkout: moving from main to doces" HEAD refs/heads/doces
+```
+
+| Passo | O que faz |
+|---|---|
+| `git read-tree HEAD doces` | carrega a tree do commit `doces` no index |
+| `-m` | faz uma "fusão" das duas trees (de `HEAD` para `doces`): só troca o que é diferente e **recusa** se isso fosse apagar alterações suas não commitadas. É a proteção que impede a troca de branch com trabalho pendente em conflito. |
+| `-u` | (*update*) além do index, atualiza os **arquivos no disco**: cria, altera e apaga o que for preciso |
+| `git symbolic-ref HEAD refs/heads/doces` | reescreve `.git/HEAD` para `ref: refs/heads/doces`. A partir daqui, commits movem `doces`. |
+
+Em **detached HEAD** (`git switch --detach <hash>`), o último passo é diferente: `git update-ref --no-deref HEAD <hash>` grava o hash direto em `.git/HEAD`, sem `ref:`.
+
+### git merge (fast-forward)
+
+Estando no `main`, com `doces` à frente:
+
+```bash
+git merge-base --is-ancestor main doces && echo "fast-forward possível"
+git read-tree -m -u HEAD doces
+git update-ref -m "merge doces: Fast-forward" refs/heads/main doces
+```
+
+| Passo | O que faz |
+|---|---|
+| `git merge-base --is-ancestor main doces` | testa se `main` é ancestral de `doces`. Se for, não há divergência e basta avançar o ponteiro. |
+| `git read-tree -m -u HEAD doces` | atualiza index e arquivos para a versão de `doces` (como no switch) |
+| `git update-ref refs/heads/main doces` | move `main` para o mesmo commit de `doces`. Nenhum commit é criado. |
+
+### git merge (three-way)
+
+Quando os branches divergiram, a sequência é maior:
+
+| Passo | Encanamento |
+|---|---|
+| 1. achar o ancestral comum | `git merge-base HEAD outro` |
+| 2. combinar as três versões no index | `git read-tree -m -u <base> HEAD outro`: arquivos que mudaram só de um lado são resolvidos na hora; os que mudaram nos dois lados ficam com os estágios 1, 2 e 3 |
+| 3. combinar o conteúdo dos arquivos em conflito | `git merge-file` em cada arquivo: tenta juntar linha a linha e escreve os marcadores `<<<<<<<` onde não consegue |
+| 4. você resolve e roda `git add` | `update-index` grava o resultado no estágio 0 |
+| 5. criar o commit de merge | `write-tree` e `commit-tree <tree> -p HEAD -p outro`: **dois pais** |
+| 6. avançar o branch | `update-ref HEAD <commit>` |
+
+(Hoje o Git faz os passos 1 a 3 internamente, com a estratégia de merge `ort`, mas o resultado no index é exatamente esse.)
+
+### git tag -a v1.0 -m "mensagem"
+
+```bash
+printf 'object %s\ntype commit\ntag v1.0\ntagger Ana <ana@exemplo.com> 1768050000 -0300\n\nprimeira versao\n' \
+  $(git rev-parse HEAD) | git mktag
+# a184221...
+
+git update-ref refs/tags/v1.0 a184221
+```
+
+| Passo | O que faz |
+|---|---|
+| `git mktag` | valida o texto (objeto, tipo, nome, tagger) e grava um **objeto tag**. Imprime o hash. |
+| `git update-ref refs/tags/v1.0 <hash>` | cria a ref da tag apontando para o objeto tag |
+
+Uma tag leve (`git tag v1.0`, sem `-a`) pula o primeiro passo: `git update-ref refs/tags/v1.0 HEAD`.
+
+### git log
+
+```bash
+git rev-list HEAD
+```
+
+```text
+34d3ad0545f31eb4dd74254240b5b04e87a480a8
+ac5effc90498ae9f04c6de8ef07adb07494156c5
+2e4797491a843b88574d18bcc3c000ed313f11b6
+```
+
+`git rev-list` parte de um commit e segue os `parent` até a raiz, imprimindo os hashes. O `git log` faz isso e, para cada hash, lê o objeto (como `git cat-file -p`) e formata autor, data e mensagem.
+
+### git fetch e git push
 
 | Porcelana | Encanamento |
 |---|---|
-| `git add` | `hash-object -w` + `update-index` |
-| `git commit` | `write-tree` + `commit-tree` + `update-ref` |
+| `git fetch` | `git ls-remote origin` lista as refs do remoto; `fetch-pack` negocia quais objetos faltam, baixa um **packfile** com eles e, por fim, `update-ref` move `refs/remotes/origin/*` |
+| `git push` | `send-pack` descobre o que o remoto não tem, envia um packfile e pede ao remoto que mova a ref. O remoto recusa se não for fast-forward (a menos que você force) |
+| `git pull` | `git fetch` + `git merge` (ou `git rebase`, com `--rebase`) |
+
+Teste o primeiro passo em qualquer repositório com remoto: `git ls-remote origin`.
+
+### Resumo: porcelana → encanamento
+
+| Porcelana | Sequência de encanamento |
+|---|---|
+| `git add f` | `hash-object -w f` → `update-index --add` |
+| `git commit` | `write-tree` → `commit-tree -p HEAD` → `update-ref HEAD` |
+| `git status` | `diff-index --cached HEAD` + `diff-files` + `ls-files --others` |
+| `git restore f` | `checkout-index -f f` |
+| `git branch b` | `update-ref refs/heads/b HEAD` |
+| `git switch b` | `read-tree -m -u HEAD b` → `symbolic-ref HEAD refs/heads/b` |
+| `git merge` (FF) | `merge-base --is-ancestor` → `read-tree -m -u` → `update-ref` |
+| `git merge` (3-way) | `merge-base` → `read-tree -m` (3 trees) → `merge-file` → `write-tree` → `commit-tree -p -p` → `update-ref` |
+| `git tag -a` | `mktag` → `update-ref refs/tags/...` |
+| `git log` | `rev-list` + `cat-file` |
+| `git fetch` | `ls-remote` → `fetch-pack` → `update-ref refs/remotes/...` |
+| `git push` | `send-pack` |
 
 ## Packfiles: como o Git economiza espaço
 
@@ -429,6 +638,20 @@ O `git gc` só apaga de vez objetos inalcançáveis **e** antigos: por padrão, 
 | `git merge-base A B` | ancestral comum |
 | `git count-objects -v` / `git gc` | estatísticas / empacota e limpa |
 | `git fsck` | verifica a integridade e acha objetos inalcançáveis |
+
+## Para se aprofundar
+
+O capítulo 10 do livro oficial **Pro Git** (gratuito, em português) é a referência para este assunto:
+
+- [Encanamento e Porcelana](https://git-scm.com/book/pt-br/v2/Git-Internals-Por-Dentro-do-Git-Encanamento-e-Porcelana-Plumbing-and-Porcelain)
+- [Objetos do Git](https://git-scm.com/book/pt-br/v2/Git-Internals-Por-Dentro-do-Git-Objetos-do-Git)
+- [Referências do Git](https://git-scm.com/book/pt-br/v2/Git-Internals-Por-Dentro-do-Git-Refer%c3%aancias-do-Git)
+- [Arquivos de pacote (Packfiles)](https://git-scm.com/book/pt-br/v2/Git-Internals-Por-Dentro-do-Git-Arquivos-de-pacote-Packfiles)
+- [Refspec](https://git-scm.com/book/pt-br/v2/Git-Internals-Por-Dentro-do-Git-Refspec)
+- [Protocolos de transferência](https://git-scm.com/book/pt-br/v2/Git-Internals-Por-Dentro-do-Git-Protocolos-de-Transfer%c3%aancia)
+- [Manutenção e recuperação de dados](https://git-scm.com/book/pt-br/v2/Git-Internals-Por-Dentro-do-Git-Manuten%c3%a7%c3%a3o-e-Recupera%c3%a7%c3%a3o-de-Dados)
+
+Para qualquer comando de encanamento, `git help <comando>` (ex.: `git help update-index`) mostra o manual completo.
 
 ## Teste-se
 
