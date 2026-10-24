@@ -20,6 +20,8 @@ gitGraph
   commit id: "c7d8e9f: adiciona pão"
 ```
 
+> **Curioso sobre o hash?** O capítulo [Git por dentro](../12-por-dentro/) mostra como ele é calculado e o que existe dentro de um commit.
+
 Fazer commit é sempre **duas etapas**:
 
 1. `git add` – escolhe o que entra (área de preparação);

@@ -1,7 +1,7 @@
 ---
 title: "Referência rápida"
 description: "Todos os comandos do guia em um só lugar, e o fluxo do dia a dia."
-weight: 12
+weight: 13
 objetivo: "onde encontrar rapidamente cada comando visto no guia."
 ---
 

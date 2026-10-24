@@ -13,7 +13,7 @@ Imagine que o `main` é a versão "oficial" das receitas. Você quer testar uma 
 
 ### O que um branch realmente é
 
-Um branch é só um **ponteiro leve para um commit**. Criar um branch não copia arquivos; é instantâneo. Quando você faz um commit em um branch, o ponteiro avança para o novo commit.
+Um branch é só um **ponteiro leve para um commit**. Criar um branch não copia arquivos; é instantâneo. Quando você faz um commit em um branch, o ponteiro avança para o novo commit. (Literalmente: um branch é um arquivo de texto com um hash dentro. Veja em [Git por dentro](../12-por-dentro/#refs-nomes-para-hashes).)
 
 ### O que é HEAD
 
