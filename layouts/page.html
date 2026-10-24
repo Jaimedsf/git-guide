@@ -5,8 +5,9 @@
   {{ .Content }}
   {{ $pages := site.RegularPages.ByWeight }}
   <nav class="paginacao">
-    {{ with $pages.Prev . }}<a class="ant" href="{{ .RelPermalink }}">← {{ .Title }}</a>{{ end }}
-    {{ with $pages.Next . }}<a class="prox" href="{{ .RelPermalink }}">{{ .Title }} →</a>{{ end }}
+    {{/* no Hugo, Pages.Next aponta para o item anterior da lista; por isso a troca */}}
+    {{ with $pages.Next . }}<a class="ant" href="{{ .RelPermalink }}">← {{ .Title }}</a>{{ end }}
+    {{ with $pages.Prev . }}<a class="prox" href="{{ .RelPermalink }}">{{ .Title }} →</a>{{ end }}
   </nav>
 </article>
 {{ end }}
