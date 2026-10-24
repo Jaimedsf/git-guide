@@ -1,8 +1,11 @@
 baseURL = "https://jaimedsf.github.io/git-guide/"
-languageCode = "pt-BR"
+locale = "pt-BR"
 defaultContentLanguage = "pt"
 title = "Git na Prática"
 disableKinds = ["taxonomy", "term", "RSS"]
+
+[outputs]
+home = ["HTML", "JSON"]
 
 [params]
 description = "Aprenda Git do zero, passo a passo: commits, branches, merge, repositórios remotos, conflitos, rebase e pull requests."

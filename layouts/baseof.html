@@ -10,6 +10,10 @@
 <body>
   <header class="topo">
     <a class="marca" href="{{ "/" | relURL }}">git<span>na prática</span></a>
+    <div class="busca">
+      <input type="search" id="busca" placeholder="Buscar (tecle /)" aria-label="Buscar no guia" autocomplete="off">
+      <ul id="resultados" hidden></ul>
+    </div>
   </header>
   <div class="layout">
     <nav class="menu" aria-label="Capítulos">
@@ -21,6 +25,54 @@
     </nav>
     <main>{{ block "main" . }}{{ end }}</main>
   </div>
+  <script>
+    // ponytail: busca linear em ~12 páginas; trocar por Pagefind/Fuse se o guia crescer muito
+    (() => {
+      const input = document.getElementById("busca");
+      const out = document.getElementById("resultados");
+      let idx;
+      // remove acentos e caixa preservando o tamanho, para o índice bater com o texto original
+      const fold = s => s.split("").map(c => c.toLowerCase().normalize("NFD")[0] || c).join("");
+      const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+      async function load() {
+        if (!idx) {
+          const r = await fetch("{{ "index.json" | relURL }}");
+          idx = (await r.json()).map(p => ({ ...p, ft: fold(p.t), fc: fold(p.c) }));
+        }
+      }
+
+      function snippet(p, word) {
+        const i = p.fc.indexOf(word);
+        if (i < 0) return esc(p.c.slice(0, 120)) + "…";
+        const a = Math.max(0, i - 50);
+        return (a ? "…" : "") + esc(p.c.slice(a, i)) + "<mark>" + esc(p.c.slice(i, i + word.length)) + "</mark>" + esc(p.c.slice(i + word.length, i + word.length + 70)) + "…";
+      }
+
+      async function search() {
+        const words = fold(input.value.trim()).split(/\s+/).filter(Boolean);
+        if (!words.length) { out.hidden = true; return; }
+        await load();
+        const hits = idx
+          .filter(p => words.every(w => p.ft.includes(w) || p.fc.includes(w)))
+          .sort((x, y) => words.some(w => y.ft.includes(w)) - words.some(w => x.ft.includes(w)));
+        out.innerHTML = hits.length
+          ? hits.map(p => `<li><a href="${p.u}"><strong>${esc(p.t)}</strong><span>${snippet(p, words[0])}</span></a></li>`).join("")
+          : "<li class=\"vazio\">Nada encontrado.</li>";
+        out.hidden = false;
+      }
+
+      input.addEventListener("input", search);
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter") { const a = out.querySelector("a"); if (a) location.href = a.href; }
+        if (e.key === "Escape") { input.value = ""; out.hidden = true; input.blur(); }
+      });
+      document.addEventListener("keydown", e => {
+        if (e.key === "/" && document.activeElement !== input) { e.preventDefault(); input.focus(); }
+      });
+      document.addEventListener("click", e => { if (!e.target.closest(".busca")) out.hidden = true; });
+    })();
+  </script>
   {{ if .Store.Get "hasMermaid" }}
   <script type="module">
     import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";

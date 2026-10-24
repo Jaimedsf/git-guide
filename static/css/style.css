@@ -37,7 +37,44 @@ a { color: var(--accent); }
 .topo {
   border-bottom: 1px solid var(--line);
   padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
+
+.busca { position: relative; margin-left: auto; width: min(360px, 100%); }
+.busca input {
+  width: 100%;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--fg);
+  background: var(--code-inline);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.busca input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+#resultados {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: min(480px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+  z-index: 10;
+}
+#resultados a { display: block; padding: 8px 10px; border-radius: 6px; color: var(--fg); text-decoration: none; }
+#resultados a:hover, #resultados a:focus { background: var(--soft); }
+#resultados span { display: block; font-size: 14px; color: var(--muted); line-height: 1.5; }
+#resultados mark { background: var(--accent); color: #fff; border-radius: 2px; padding: 0 2px; }
+#resultados .vazio { padding: 8px 10px; color: var(--muted); }
 .marca {
   font: 700 22px/1 ui-monospace, Menlo, monospace;
   color: var(--accent);

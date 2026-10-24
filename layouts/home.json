@@ -1,0 +1,7 @@
+{{- $idx := slice -}}
+{{- range site.RegularPages.ByWeight -}}
+{{- /* tira o código dos diagramas e decodifica entidades para o trecho ficar legível */ -}}
+{{- $txt := replaceRE `(?s)<pre class="mermaid">.*?</pre>` "" .Content | plainify | htmlUnescape -}}
+{{- $idx = $idx | append (dict "t" .Title "u" .RelPermalink "c" $txt) -}}
+{{- end -}}
+{{- $idx | jsonify -}}
